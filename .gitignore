@@ -1,0 +1,27 @@
+# =====================================================================
+#  SECRETS. Never commit.
+# =====================================================================
+*token*.json
+*cred*.json
+*secret*
+*.key
+*.pem
+.env
+.env.*
+!.env.example
+
+# =====================================================================
+#  YOUR REAL VAULT. Stays on your machine only.
+#  The repo ships example-vault/ as a template. If you keep your own
+#  vault inside this repo, name it `vault/` (or point AGENT_MEMORY_DIR
+#  elsewhere) and it will be ignored.
+# =====================================================================
+/vault/
+/private-vault/
+
+# =====================================================================
+#  Cruft.
+# =====================================================================
+__pycache__/
+*.pyc
+.DS_Store
