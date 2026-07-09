@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-memory-reindex.py: deterministic health auditor for an agent-memory vault.
+memory-reindex.py: deterministic health auditor for an memory vault.
 
-An agent-memory vault is a bounded hot-set index (MEMORY.md) sitting over a pile of
+An memory vault is a bounded hot-set index (MEMORY.md) sitting over a pile of
 typed, single-fact topic files. The index is the only thing loaded into the agent's
 context every session; the topic files are surfaced on demand by recall (matching their
 `description:` frontmatter). This tool makes "what should fall out of the index" a

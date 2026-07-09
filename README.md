@@ -1,4 +1,4 @@
-# agent-memory
+# agent-memory-vault
 
 A file-based memory layer for AI agents. Plain Markdown, a bounded index, a knowledge graph,
 and a deterministic auditor that keeps it honest as it grows.
