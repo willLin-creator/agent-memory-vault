@@ -75,6 +75,8 @@ docs/
   ARCHITECTURE.md         the design: hot-set, recall, enforcement tiers, the graph
   SCHEMA.md               the file format: naming, frontmatter, links, the index
 example-vault/            a small, self-documenting vault that demonstrates every check
+skills/
+  remember/SKILL.md       the write path: capture a fact as a schema-correct, linked note
 ```
 
 ## Using it in your own agent
@@ -83,6 +85,11 @@ This is a substrate, not an application. It has no opinion about who the agent i
 does. To adopt it: keep a vault directory, put your facts in it as Markdown files following
 [`docs/SCHEMA.md`](docs/SCHEMA.md), have your agent write and recall from it, and schedule the
 auditor to keep it in shape.
+
+The three surfaces of the vault: **write** (the `skills/remember/` skill: classify, dedupe, draft,
+confirm, write a schema-correct note), **recall** (match a note's `description` to pull it into
+context on demand), and **maintain** (`memory-reindex.py`). The write skill exists so your agent
+produces well-formed, cross-linked notes instead of freehand files.
 
 It pairs naturally with any agent harness or assistant that already reads Markdown. The
 convention is small on purpose, so it composes rather than dictates.
