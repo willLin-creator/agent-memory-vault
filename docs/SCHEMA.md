@@ -26,6 +26,9 @@ metadata:
   enforcement: recall                        # hook | pinned | recall   (default: recall)
   status: active                             # active | done | dropped | shipped | archived
   revisit: 2026-09-01                        # YYYY-MM-DD; once past, flagged for eviction
+  last_accessed: 2026-07-10                  # YYYY-MM-DD; when recall last used it (see memory-touch.py)
+  access_count: 12                           # int; how many times recall has used it
+  importance: 8                              # 1-10; high importance is protected from cold-demotion
 ---
 ```
 
@@ -37,6 +40,11 @@ metadata:
   you if any file drifted from it.
 - **`status`** and **`revisit`** drive staleness. A finished project or a lapsed revisit date
   is an eviction candidate, surfaced automatically.
+- **`last_accessed`**, **`access_count`**, and **`importance`** drive *coldness*, a softer
+  counterpart to staleness: a note that has gone unused (old `last_accessed`, low
+  `access_count`) and is not marked important is surfaced as a demote hint, never gated or
+  deleted. These are written by `scripts/memory-touch.py` from your agent's recall step, not by
+  hand. `pinned` and `hook` memories are never cold. See `docs/ARCHITECTURE.md`.
 
 ## Body
 

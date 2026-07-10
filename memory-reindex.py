@@ -17,6 +17,8 @@ NOTHING. It prints an exact punch-list:
   - graph orphans        (topic file with no [[links]] in or out -> invisible to the graph)
   - hubs                 (heavily-referenced files that may be worth splitting)
   - eviction candidates  (status: done|dropped|shipped|archived, or a past `revisit:` date)
+  - cold candidates      (behavioral disuse: old `last_accessed`, low `access_count`, low
+                          `importance`; a soft demote hint, does NOT affect the exit code)
   - files missing a `description:` (recall can't find them well)
   - near-duplicate clusters (same slug prefix)
 
@@ -39,7 +41,8 @@ Env:
 
 Frontmatter it understands (all optional except name + description):
   name, description, metadata.type, metadata.status, metadata.revisit (YYYY-MM-DD),
-  metadata.enforcement (hook|pinned|recall)
+  metadata.enforcement (hook|pinned|recall),
+  metadata.last_accessed (YYYY-MM-DD), metadata.access_count (int), metadata.importance (1-10)
 
 Exit code: 0 = healthy, 1 = action recommended (over budget / dangling / stale found).
 """
@@ -54,6 +57,13 @@ BUDGET_BYTES = int(os.environ.get("AGENT_MEMORY_BUDGET_KB", "18")) * 1024
 MAX_LINE = 200
 STALE_STATUSES = {"done", "dropped", "shipped", "archived", "complete", "completed"}
 HUB_THRESHOLD = 4  # inbound wikilinks at/above which a file is a "hub" worth reviewing
+# Behavioral "coldness" thresholds. This is a soft demote hint distinct from declarative
+# staleness: it reads usage signals (last_accessed / access_count / importance) rather than a
+# hand-set status. Defaults are deliberately conservative so shipping it never flags a note
+# until something has actually been tracking usage. See docs/ARCHITECTURE.md ("Coldness").
+COLD_DAYS = int(os.environ.get("AGENT_MEMORY_COLD_DAYS", "90"))       # recency: days untouched
+COLD_MAX_HITS = int(os.environ.get("AGENT_MEMORY_COLD_MAX_HITS", "1"))  # frequency: hits at/under
+IMPORTANT_MIN = int(os.environ.get("AGENT_MEMORY_IMPORTANT_MIN", "7"))  # importance: >= is protected
 MEM_PREFIXES = tuple(
     p.strip() for p in
     os.environ.get("AGENT_MEMORY_PREFIXES", "feedback_,project_,reference_").split(",")
@@ -205,6 +215,54 @@ def is_stale(fm, today):
     return None
 
 
+def _meta_get(fm, key):
+    """A field may live under metadata: or at the top level; coalesce like the views do."""
+    return fm.get("metadata", {}).get(key, fm.get(key))
+
+
+def _to_int(v, default=None):
+    try:
+        return int(str(v).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def is_cold(fm, today):
+    """Behavioral disuse signal, distinct from declarative staleness (is_stale).
+
+    Staleness asks "did someone mark this finished?"; coldness asks "has this gone unused?"
+    It is the index-layer weighting the Generative Agents memory paper formalizes: recency
+    (time since last access) + frequency (access count) + importance. Relevance, the paper's
+    fourth term, is intentionally left out here because recall-by-description already handles
+    query relevance; this signal only governs what stays in the hot-set.
+
+    Deliberately conservative and opt-in:
+      - a file is ignored unless it carries a `last_accessed:` date (nothing to weigh otherwise),
+      - `pinned` / `hook` memories are exempt (they are never demoted by design),
+      - it fires only when ALL of recency, frequency, and importance say "low signal".
+
+    It is a hint, not a verdict: it never flips the exit code, because disuse is a reason to
+    review a note, not proof it should go. Returns a human-readable reason or None."""
+    enforcement = (_meta_get(fm, "enforcement") or "recall").lower()
+    if enforcement in ("pinned", "hook"):
+        return None
+    la = _meta_get(fm, "last_accessed") or ""
+    m = re.match(r"(\d{4})-(\d{2})-(\d{2})", str(la))
+    if not m:
+        return None
+    days = (today - date(int(m.group(1)), int(m.group(2)), int(m.group(3)))).days
+    if days < COLD_DAYS:
+        return None
+    hits = _to_int(_meta_get(fm, "access_count"), 0)
+    if hits > COLD_MAX_HITS:
+        return None
+    imp = _to_int(_meta_get(fm, "importance"), None)
+    if imp is not None and imp >= IMPORTANT_MIN:
+        return None
+    imp_str = f", importance {imp}" if imp is not None else ""
+    return f"{days}d since access, {hits} hit(s){imp_str}"
+
+
 def audit():
     today = date.today()
     index_text = open(INDEX, encoding="utf-8").read() if os.path.exists(INDEX) else ""
@@ -232,6 +290,14 @@ def audit():
     stale = sorted(
         (f["file"], is_stale(f["fm"], today)) for f in files if is_stale(f["fm"], today)
     )
+    # Cold is a softer signal than stale, so a note that is already hard-stale is not also
+    # listed as cold (the stale line is the stronger action). Cold never gates the exit code.
+    stale_files = {f for f, _ in stale}
+    cold = sorted(
+        (f["file"], is_cold(f["fm"], today))
+        for f in files
+        if f["file"] not in stale_files and is_cold(f["fm"], today)
+    )
 
     # near-duplicate clusters by first 4 slug tokens. True dups share long prefixes
     # (naming front-loads the topic); distinct topics diverge by the 4th token, so 4
@@ -255,7 +321,7 @@ def audit():
         "topic_files": len(files),
         "oversize_lines": oversize, "dangling_pointers": dangling,
         "orphan_files": orphans, "missing_description": no_desc,
-        "stale_candidates": stale, "duplicate_clusters": dups,
+        "stale_candidates": stale, "cold_candidates": cold, "duplicate_clusters": dups,
         "graph_orphans": graph["graph_orphans"],
         "hubs": graph["hubs"],
         "dangling_wikilinks": graph["dangling_wikilinks"],
@@ -283,6 +349,8 @@ def print_human(r):
     section("Dangling [[wikilinks]] (body links a missing memory)", r["dangling_wikilinks"],
             lambda x: f"{x[0]}  ->  [[{x[1]}]]")
     section("Stale / lapsed -> evict from index", r["stale_candidates"],
+            lambda x: f"{x[0]}  ({x[1]})")
+    section("Cold / disused -> consider demoting (hint, not gated)", r["cold_candidates"],
             lambda x: f"{x[0]}  ({x[1]})")
     section("Graph orphans (no [[links]] in or out -> merge/link or evict)", r["graph_orphans"], str)
     section("Index orphans (on disk, not in index -> recall-only)", r["orphan_files"], str)
