@@ -92,6 +92,23 @@ def rewrite(text, access_date):
     return out if out.endswith("\n") else out + "\n"
 
 
+def touch_file(path, access_date):
+    """Stamp one file in place. Returns 'ok', 'nofm' (no frontmatter), or 'missing'.
+
+    This is the programmatic entry point (the recall hook calls it). It writes; callers
+    that want a preview use rewrite() instead."""
+    if not os.path.isfile(path):
+        return "missing"
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    out = rewrite(text, access_date)
+    if out is None:
+        return "nofm"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(out)
+    return "ok"
+
+
 def main(argv):
     access_date = date.today().isoformat()
     dry_run = False
@@ -116,22 +133,26 @@ def main(argv):
 
     rc = 0
     for p in paths:
-        if not os.path.isfile(p):
+        if dry_run:
+            if not os.path.isfile(p):
+                print(f"memory-touch: not a file: {p}", file=sys.stderr)
+                rc = 2
+                continue
+            with open(p, encoding="utf-8") as f:
+                out = rewrite(f.read(), access_date)
+            if out is None:
+                print(f"memory-touch: no frontmatter, skipped: {p}", file=sys.stderr)
+                rc = 2
+                continue
+            sys.stdout.write(out)
+            continue
+        status = touch_file(p, access_date)
+        if status == "missing":
             print(f"memory-touch: not a file: {p}", file=sys.stderr)
             rc = 2
-            continue
-        with open(p, encoding="utf-8") as f:
-            text = f.read()
-        out = rewrite(text, access_date)
-        if out is None:
+        elif status == "nofm":
             print(f"memory-touch: no frontmatter, skipped: {p}", file=sys.stderr)
             rc = 2
-            continue
-        if dry_run:
-            sys.stdout.write(out)
-        else:
-            with open(p, "w", encoding="utf-8") as f:
-                f.write(out)
     return rc
 
 
