@@ -118,8 +118,9 @@ The signal is conservative on purpose:
 Writing the usage facts is a separate, single-purpose tool, `scripts/memory-touch.py`. The
 auditor still writes nothing; the toucher writes exactly two fields (`last_accessed`,
 `access_count`). Wire the toucher into your recall step and the vault starts learning its own
-working set. Thresholds (`AGENT_MEMORY_COLD_DAYS`, `AGENT_MEMORY_COLD_MAX_HITS`,
-`AGENT_MEMORY_IMPORTANT_MIN`) tune how patient the signal is.
+working set; `hooks/recall-touch.py` is a ready-made Claude Code hook that does exactly this,
+stamping a note whenever the agent reads it. Thresholds (`AGENT_MEMORY_COLD_DAYS`,
+`AGENT_MEMORY_COLD_MAX_HITS`, `AGENT_MEMORY_IMPORTANT_MIN`) tune how patient the signal is.
 
 ## Why files, not a database
 
