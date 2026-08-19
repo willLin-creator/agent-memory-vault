@@ -10,7 +10,9 @@ computed answer instead of a periodic judgment call. It READS everything and CHA
 NOTHING. It prints an exact punch-list:
 
   - index size vs the budget (default 18KB, the hot-set has to stay small)
-  - index entry lines over the 200-char one-liner rule
+  - index entry lines over the 200-char one-liner rule (a region wrapped in
+    <!-- reindex:prose-start --> / <!-- reindex:prose-end --> is exempt from this
+    check only, for an always-resident block whose bullets carry their reasoning)
   - dangling pointers    (MEMORY.md references a file that doesn't exist)
   - dangling [[wikilinks]] (a body link points at a memory that doesn't exist)
   - index orphans        (topic file not referenced in the index -> recall-only)
@@ -55,6 +57,13 @@ MEM_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "example-vaul
 INDEX = os.path.join(MEM_DIR, "MEMORY.md")
 BUDGET_BYTES = int(os.environ.get("AGENT_MEMORY_BUDGET_KB", "18")) * 1024
 MAX_LINE = 200
+# MAX_LINE exists to keep index ENTRIES scannable one-per-line. That purpose does not apply to
+# a prose region: an index can legitimately hold a small always-resident block of rules and
+# corrections whose value IS their reasoning, and those bullets run long on purpose. Wrap such
+# a region in these markers to exempt it from the length rule only. Every other check (coverage,
+# dangling refs, budget) still applies inside it, and an index without the markers is unchanged.
+PROSE_START = "reindex:prose-start"
+PROSE_END = "reindex:prose-end"
 STALE_STATUSES = {"done", "dropped", "shipped", "archived", "complete", "completed"}
 HUB_THRESHOLD = 4  # inbound wikilinks at/above which a file is a "hub" worth reviewing
 # Behavioral "coldness" thresholds. This is a soft demote hint distinct from declarative
@@ -272,7 +281,16 @@ def audit():
     all_names = {f["file"] for f in files}
 
     oversize = []
+    in_prose = False
     for i, line in enumerate(index_text.splitlines(), 1):
+        if PROSE_START in line:
+            in_prose = True
+            continue
+        if PROSE_END in line:
+            in_prose = False
+            continue
+        if in_prose:
+            continue
         if line.startswith("- ") and len(line) > MAX_LINE:
             oversize.append((i, len(line)))
 
