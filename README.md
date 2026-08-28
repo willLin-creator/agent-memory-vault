@@ -6,6 +6,22 @@ and a deterministic auditor that keeps it honest as it grows.
 No database, no server, no lock-in. Your agent's memory is a folder of Markdown files you can
 read, diff, and grep. This repo is the engine and the conventions; your facts stay yours.
 
+## Provenance
+
+This is a genericized split-out of one piece of a private AI operating system I have built, refined,
+and relied on daily for **3,000+ hours** of real work: the memory layer that let a chief-of-staff
+agent remember across sessions and stay honest as its vault grew past what any index could list by
+hand. The public repository is a fresh extraction with every personal and company detail removed, so
+its commit history is recent. **The engine it is distilled from is not.** Every check here fired on a
+real vault before it was written down: the 31% uncovered memories, the silently truncated index, the
+lessons file nobody read any more.
+
+Sibling extractions from the same system: [ai-chief-of-staff](https://github.com/willLin-creator/ai-chief-of-staff)
+(the operating system itself), [agent-eval-loop](https://github.com/willLin-creator/agent-eval-loop)
+(corrections as scored cases, enforcement that graduates on evidence), and
+[agent-harness](https://github.com/willLin-creator/agent-harness) (the engineering loop). Each works
+alone.
+
 ## The problem
 
 An agent's context is small and expensive. The things worth remembering are not. You cannot
