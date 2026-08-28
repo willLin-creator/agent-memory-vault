@@ -1,6 +1,8 @@
 ---
 name: reference_orphan_note
 description: A note that nothing links to and that links to nothing, a graph orphan on purpose.
+cluster: Design notes
+hook: a graph orphan on purpose
 metadata:
   type: reference
 ---

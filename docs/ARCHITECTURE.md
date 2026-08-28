@@ -122,6 +122,76 @@ working set; `hooks/recall-touch.py` is a ready-made Claude Code hook that does 
 stamping a note whenever the agent reads it. Thresholds (`AGENT_MEMORY_COLD_DAYS`,
 `AGENT_MEMORY_COLD_MAX_HITS`, `AGENT_MEMORY_IMPORTANT_MIN`) tune how patient the signal is.
 
+## Generated pointers, resident rules
+
+A hand-maintained index asks whoever writes a memory to also remember to add its pointer, keep the
+file under budget, and keep every memory covered. Those are three constraints held in a head, and
+they drift: in the vault this repo was extracted from, 31% of memories had no pointer and the
+orphan detector that should have caught it was buried in false positives.
+
+So the index has two regions, and only one of them is written by hand:
+
+```
+MEMORY.md
+├── RESIDENT (hand-written)        rules that must fire unprompted; the reasoning is the payload
+│     wrap in <!-- reindex:prose-start --> / <!-- reindex:prose-end --> to exempt from the line-length rule
+└── GENERATED (memory-index.py)    one dense line per cluster, rendered from each memory's
+      <!-- BEGIN GENERATED POINTERS -->   `cluster:` / `hook:` frontmatter
+      <!-- END GENERATED POINTERS -->
+```
+
+`memory-index.py build` renders the generated block from the memories themselves. Consequences:
+
+- **Coverage is 100% by construction.** Adding a memory adds its pointer. Nobody remembers anything.
+- **Lines scale with clusters, not memories.** Going from 170 to 250 memories makes lines longer,
+  never more numerous. Lines are the scarce resource (see the next section); characters are not.
+- **A memory already referenced in the resident region is skipped** in the generated block, so
+  nothing is listed twice, and a memory dropped from the resident block reappears in the generated
+  block automatically instead of vanishing.
+- **Demotion changes meaning.** With generated pointers, "evict from the index" applies to the
+  resident block only. A memory that is merely cold stays a one-pointer line; if it should leave
+  the index entirely, move the file to `<vault>/archive/` (the tools only read the top level), which
+  is lossless.
+
+`hooks/memory-index-rebuild.sh` runs the generator whenever a memory file is written, so the block
+never goes stale; `memory-index.py --check` reports staleness for a scheduled job. The composition
+report (`--report`) splits bytes into resident vs generated, because those two halves grow for
+different reasons and only the resident half deserves a challenge: merging memories barely moves
+bytes, so a blended byte budget ends up pressuring the highest-value content.
+
+## The binding limit is the consumer's, not the auditor's
+
+The auditor checks an 18KB byte budget. The thing that actually loads the index may enforce a
+different limit, silently. A Claude Code memory index is cut off at **200 lines on read** with no
+error; everything past that line simply does not exist to the agent. A byte-budget audit reports
+green on a file with sixty invisible lines.
+
+Two rules fall out of this:
+
+1. **Find the limit the consumer enforces, not the one a script reports.** `memory-index.py`
+   treats the line limit (`AGENT_MEMORY_LINE_LIMIT`, default 200) as the hard cliff and the byte
+   budget as secondary. If your runtime truncates differently, set the variable; the point is that
+   the limit lives in one place and the generator owns it.
+2. **A green audit is not proof a file loads.** When a report and a symptom disagree, suspect the
+   report. And before calling a pattern in an old index "drift", check whether it was a rational
+   adaptation to a constraint you have not found yet: two memories packed onto one line was the
+   file surviving the line limit, not sloppiness.
+
+The same failure has a general shape: **a file grew past the budget of the thing that consumes it.**
+A lessons file that reaches 30k tokens stops being read, and the correction loop it feeds silently
+stops. The fix is the same each time: a bounded hot file plus a lossless archive, rotated on a
+schedule rather than when someone notices.
+
+## Consolidation is the step nobody does
+
+A memory system that only ever adds is a log. Write (`skills/remember/`) and recall get natural
+triggers; consolidation has none, so it needs a calendar. `scripts/memory-audit-cron.sh` is the
+calendar: it runs the auditor and the generator check and raises a banner when there is work.
+`skills/consolidate/` is the work: merge duplicates, delete what is wrong, demote what is cold,
+fix structural rot, every mutation gated on a human. The distinction it holds hardest is delete vs
+demote: delete is for WRONG, demote is for unused-but-true, and a still-true memory is never
+deleted for being cold.
+
 ## Why files, not a database
 
 The whole vault is plain Markdown with YAML frontmatter. That is deliberate:

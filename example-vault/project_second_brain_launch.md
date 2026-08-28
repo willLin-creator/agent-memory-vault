@@ -1,6 +1,8 @@
 ---
 name: project_second_brain_launch
 description: Building an agent second brain. Bounded hot-set index, recall-by-description, graph auditing.
+cluster: Projects
+hook: the vault's own build
 metadata:
   type: project
   status: active

@@ -1,6 +1,8 @@
 ---
 name: reference_recall_design
 description: How recall works. The index is a hot-set; topic files are surfaced by description.
+cluster: Design notes
+hook: why the index stays small
 metadata:
   type: reference
 ---

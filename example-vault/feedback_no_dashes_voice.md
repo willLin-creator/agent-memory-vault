@@ -1,6 +1,8 @@
 ---
 name: feedback_no_dashes_voice
 description: Never use dashes as connectors in written output; use clean punctuation instead.
+cluster: Voice
+hook: enforced by a hook
 type: feedback
 enforcement: hook
 ---

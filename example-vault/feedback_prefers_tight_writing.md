@@ -1,6 +1,8 @@
 ---
 name: feedback_prefers_tight_writing
 description: The user prefers tight writing: short sentences, no hedging, structure over prose.
+cluster: Voice
+hook: short sentences, no hedges
 metadata:
   type: feedback
   enforcement: recall

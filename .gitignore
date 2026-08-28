@@ -25,3 +25,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Demoted-but-true memories moved out of the top level by /consolidate
+/example-vault/archive/
+/vault/archive/

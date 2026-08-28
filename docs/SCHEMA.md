@@ -29,6 +29,8 @@ metadata:
   last_accessed: 2026-07-10                  # YYYY-MM-DD; when recall last used it (see memory-touch.py)
   access_count: 12                           # int; how many times recall has used it
   importance: 8                              # 1-10; high importance is protected from cold-demotion
+cluster: Voice                               # heading the generated pointer is grouped under (memory-index.py)
+hook: enforced by a hook                     # a few words shown after the filename in the generated block
 ---
 ```
 
@@ -40,6 +42,11 @@ metadata:
   you if any file drifted from it.
 - **`status`** and **`revisit`** drive staleness. A finished project or a lapsed revisit date
   is an eviction candidate, surfaced automatically.
+- **`cluster`** and **`hook`** drive the generated pointer block (`memory-index.py`). `cluster` is
+  the heading the pointer is grouped under; a memory without one lands in `Unsorted` and is
+  warned about. `hook` is a few words of relevance shown after the filename. Both may sit at the
+  top level or under `metadata:`; the generator reads either, because some editing tools move
+  unknown root keys inside `metadata:` on write.
 - **`last_accessed`**, **`access_count`**, and **`importance`** drive *coldness*, a softer
   counterpart to staleness: a note that has gone unused (old `last_accessed`, low
   `access_count`) and is not marked important is surfaced as a demote hint, never gated or
@@ -63,8 +70,16 @@ file exists. That list is a to-do, not an error log.
 
 ## The index (`MEMORY.md`)
 
-- Every entry is one line: a slug plus a relevance hook. Detail lives in the topic file, not
-  the index. Lines over 200 characters are flagged.
-- Reference each listed topic file by its filename so the auditor can check coverage.
-- Stay under the byte budget (18KB default). Over budget, evict the lowest-value lines. The
-  files stay; recall still finds them.
+Two regions (see `docs/ARCHITECTURE.md`, "Generated pointers, resident rules"):
+
+- **Resident, hand-written.** Rules that must fire unprompted. Each entry is one line: a slug plus
+  a relevance hook; detail lives in the topic file. Lines over 200 characters are flagged unless the
+  region is wrapped in `<!-- reindex:prose-start -->` / `<!-- reindex:prose-end -->`. Reference each
+  topic file by its filename so the auditor can check coverage.
+- **Generated.** Everything between `<!-- BEGIN GENERATED POINTERS ... -->` and
+  `<!-- END GENERATED POINTERS -->` is written by `memory-index.py build` from the memories'
+  `cluster:` / `hook:` frontmatter. Never hand-edit it. `memory-index.py build --init` appends the
+  marker pair to an index that has none.
+- Stay under the line limit the consumer enforces (`AGENT_MEMORY_LINE_LIMIT`, default 200; past it
+  the index is silently truncated) and the byte budget (18KB default). Lines scale with clusters,
+  so growth in memories is safe; growth in the resident region is the thing to challenge.

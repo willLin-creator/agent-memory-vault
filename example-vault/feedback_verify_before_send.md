@@ -1,6 +1,8 @@
 ---
 name: feedback_verify_before_send
 description: Never send an outbound message without explicit approval; show a draft and wait.
+cluster: Safety
+hook: show a draft, wait for approval
 metadata:
   type: feedback
   enforcement: pinned

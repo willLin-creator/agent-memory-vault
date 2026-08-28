@@ -51,3 +51,39 @@ opened on its own in a while," not "never seen." Tune patience with `AGENT_MEMOR
 The hook runs once per `Read`. The common path (a read outside the vault) is a JSON parse and
 a prefix check, then it exits. It only loads the toucher and writes when a real vault file is
 read, so the steady-state overhead on unrelated reads is a single short-lived process.
+
+## `memory-index-rebuild.sh`: regenerate the pointer block on every memory write
+
+The generated pointer block in `MEMORY.md` (see `../docs/ARCHITECTURE.md`) is only honest while
+it matches the memories on disk. This script hangs off the `Edit` and `Write` tools as a
+PostToolUse hook: when the written file is a topic file inside the vault, it runs
+`memory-index.py build`; when the written file is `MEMORY.md` itself, it does NOT rebuild (that
+would clobber a deliberate resident edit mid-write) and instead reports whether the block is now
+stale.
+
+Fail-open like the other hook: does nothing unless `AGENT_MEMORY_DIR` is set and the file is inside
+it, never blocks the write, always exits 0. No loop: the generator writes the index directly, not
+through the agent's tools, so it cannot re-trigger itself.
+
+### Wire it
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "AGENT_MEMORY_DIR=/absolute/path/to/vault bash /absolute/path/to/agent-memory-vault/hooks/memory-index-rebuild.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Needs `jq`. Pair it with a SessionStart or cron `memory-index.py --check` so a stale block is
+caught even when a memory was written by something other than the agent's tools.
